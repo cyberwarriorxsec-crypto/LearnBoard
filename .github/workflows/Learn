@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LearnFlow — Personal Learning Tracker</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+
+<style>
+  /* ── Base ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:       #050508;
+    --surface:  #0f0f18;
+    --surface2: #16162a;
+    --border:   #1e1e35;
+    --violet:   #7C3AED;
+    --violet-g: #9d5cf6;
+    --emerald:  #10B981;
+    --amber:    #F59E0B;
+    --red:      #EF4444;
+    --text:     #e2e8f0;
+    --muted:    #64748b;
+    --mono:     'JetBrains Mono', monospace;
+    --sans:     'Inter', sans-serif;
+  }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* ── Hero glow ── */
+  .hero-glow {
+    position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(ellipse 70% 50% at 50% -10%, rgba(124,58,237,.18) 0%, transparent 70%);
+  }
+
+  /* ── Mono numbers ── */
+  .mono { font-family: var(--mono); }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .card:hover { border-color: rgba(124,58,237,.4); box-shadow: 0 0 24px rgba(124,58,237,.08); }
+
+  /* ── Stat card ── */
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .stat-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--violet), transparent);
+    opacity: 0;
+    transition: opacity .3s;
+  }
+  .stat-card:hover::before { opacity: 1; }
+
+  /* ── Progress bar ── */
+  .progress-track {
+    background: var(--surface2);
+    border-radius: 99px;
+    height: 6px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    border-radius: 99px;
+    transition: width .5s cubic-bezier(.4,0,.2,1);
+    background: linear-gradient(90deg, var(--violet), var(--violet-g));
+  }
+  .progress-fill.complete { background: linear-gradient(90deg, var(--emerald), #34d399); }
+
+  /* ── Badge ── */
+  .badge {
+    font-size: 11px; font-weight: 600; padding: 3px 9px;
+    border-radius: 99px; letter-spacing: .03em; text-transform: uppercase;
+    font-family: var(--mono);
+  }
+  .badge-not-started  { background: rgba(100,116,139,.15); color: var(--muted); border: 1px solid rgba(100,116,139,.25); }
+  .badge-in-progress  { background: rgba(124,58,237,.15);  color: #a78bfa;      border: 1px solid rgba(124,58,237,.3); }
+  .badge-completed    { background: rgba(16,185,129,.15);  color: var(--emerald);border: 1px solid rgba(16,185,129,.3); }
+
+  /* ── Pomodoro ring ── */
+  .pomo-ring { transform: rotate(-90deg); }
+  .pomo-bg   { fill: none; stroke: var(--surface2); stroke-width: 4; }
+  .pomo-arc  { fill: none; stroke: var(--violet);   stroke-width: 4; stroke-linecap: round;
+               stroke-dasharray: 251.2; transition: stroke-dashoffset .8s linear; }
+  .pomo-arc.break { stroke: var(--emerald); }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(0,0,0,.75); backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+    opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+  .modal-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 20px; width: 100%; max-width: 520px;
+    padding: 28px; transform: translateY(12px); transition: transform .2s;
+    max-height: 90vh; overflow-y: auto;
+  }
+  .modal-overlay.open .modal-box { transform: translateY(0); }
+
+  /* ── Inputs ── */
+  .inp {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 14px; width: 100%;
+    color: var(--text); font-family: var(--sans); font-size: 14px;
+    outline: none; transition: border-color .2s;
+  }
+  .inp:focus { border-color: var(--violet); box-shadow: 0 0 0 3px rgba(124,58,237,.12); }
+  .inp::placeholder { color: var(--muted); }
+  select.inp option { background: var(--surface2); }
+
+  /* ── Buttons ── */
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 9px 18px; border-radius: 10px; font-size: 14px; font-weight: 600;
+    cursor: pointer; border: none; transition: all .18s; font-family: var(--sans);
+  }
+  .btn-primary { background: var(--violet); color: #fff; }
+  .btn-primary:hover { background: var(--violet-g); box-shadow: 0 0 18px rgba(124,58,237,.4); }
+  .btn-ghost { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-ghost:hover { border-color: var(--violet); color: #a78bfa; }
+  .btn-danger { background: rgba(239,68,68,.12); color: var(--red); border: 1px solid rgba(239,68,68,.25); }
+  .btn-danger:hover { background: rgba(239,68,68,.22); }
+  .btn-icon {
+    width: 32px; height: 32px; padding: 0; display: inline-flex;
+    align-items: center; justify-content: center; border-radius: 8px;
+    cursor: pointer; border: none; font-size: 13px;
+    background: var(--surface2); color: var(--muted); transition: all .15s;
+  }
+  .btn-icon:hover { background: rgba(124,58,237,.2); color: #a78bfa; }
+  .btn-icon.emerald:hover { background: rgba(16,185,129,.18); color: var(--emerald); }
+
+  /* ── Notes textarea ── */
+  .notes-area {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 12px; width: 100%; resize: vertical;
+    min-height: 72px; color: var(--text); font-size: 13px;
+    font-family: var(--mono); line-height: 1.6; outline: none;
+    transition: border-color .2s;
+  }
+  .notes-area:focus { border-color: rgba(124,58,237,.5); }
+
+  /* ── Toast ── */
+  #toast-container {
+    position: fixed; top: 20px; right: 20px; z-index: 200;
+    display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+  }
+  .toast {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 16px; font-size: 13px;
+    max-width: 280px; display: flex; align-items: center; gap: 8px;
+    transform: translateX(120%); transition: transform .3s;
+    pointer-events: none; box-shadow: 0 4px 24px rgba(0,0,0,.4);
+  }
+  .toast.show { transform: translateX(0); }
+  .toast.success { border-color: rgba(16,185,129,.35); }
+  .toast.info    { border-color: rgba(124,58,237,.35); }
+
+  /* ── Streak fire ── */
+  @keyframes flicker {
+    0%,100% { text-shadow: 0 0 8px rgba(245,158,11,.7); }
+    50%      { text-shadow: 0 0 18px rgba(245,158,11,1); }
+  }
+  .streak-fire { animation: flicker 1.4s ease-in-out infinite; }
+
+  /* ── Course card layout ── */
+  .course-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 18px;
+  }
+
+  /* ── Category pill colors ── */
+  .cat-dev    { background: rgba(124,58,237,.15); color: #a78bfa; }
+  .cat-design { background: rgba(16,185,129,.12); color: #34d399; }
+  .cat-lang   { background: rgba(245,158,11,.12); color: #fcd34d; }
+  .cat-data   { background: rgba(59,130,246,.12); color: #93c5fd; }
+  .cat-other  { background: rgba(100,116,139,.12); color: #94a3b8; }
+
+  /* ── Empty state ── */
+  .empty-state { text-align: center; padding: 60px 20px; }
+
+  /* ── Notes collapsed ── */
+  .notes-section { overflow: hidden; transition: max-height .3s; }
+
+  /* ── Pomodoro button states ── */
+  .pomo-btn { transition: all .18s; }
+  .pomo-btn.active { background: rgba(16,185,129,.18); color: var(--emerald); border-color: rgba(16,185,129,.35); }
+
+  /* ── Responsive ── */
+  @media (max-width: 640px) {
+    .stat-grid { grid-template-columns: repeat(2, 1fr) !important; }
+    .top-widgets { grid-template-columns: 1fr !important; }
+  }
+
+  /* ── Up next accent ── */
+  .up-next-card {
+    border-color: rgba(245,158,11,.3);
+    background: linear-gradient(135deg, var(--surface) 0%, rgba(245,158,11,.04) 100%);
+  }
+  .up-next-card:hover { border-color: rgba(245,158,11,.5) !important; }
+
+  /* ── Status filter tabs ── */
+  .filter-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .filter-tab {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 14px; border-radius: 99px; font-size: 12px; font-weight: 600;
+    cursor: pointer; border: 1px solid var(--border); background: var(--surface2);
+    color: var(--muted); transition: all .18s; font-family: var(--mono);
+    letter-spacing: .02em;
+  }
+  .filter-tab:hover { border-color: rgba(124,58,237,.4); color: #a78bfa; }
+  .filter-tab.active {
+    background: rgba(124,58,237,.18); color: #a78bfa;
+    border-color: rgba(124,58,237,.5);
+    box-shadow: 0 0 12px rgba(124,58,237,.15);
+  }
+  .filter-tab.active.tab-complete  { background: rgba(16,185,129,.15); color: var(--emerald); border-color: rgba(16,185,129,.4); box-shadow: 0 0 12px rgba(16,185,129,.12); }
+  .filter-tab.active.tab-progress  { background: rgba(124,58,237,.18); color: #a78bfa;        border-color: rgba(124,58,237,.5); }
+  .filter-tab.active.tab-notstart  { background: rgba(100,116,139,.15); color: #94a3b8;        border-color: rgba(100,116,139,.4); }
+  .filter-tab.active.tab-all       { background: rgba(124,58,237,.18); color: #a78bfa;        border-color: rgba(124,58,237,.5); }
+  .tab-dot { width: 7px; height: 7px; border-radius: 50%; }
+
+  /* ── Sort select ── */
+  .sort-select {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 10px; color: var(--muted);
+    font-size: 12px; font-family: var(--mono); outline: none; cursor: pointer;
+    transition: border-color .18s;
+  }
+  .sort-select:focus, .sort-select:hover { border-color: rgba(124,58,237,.4); color: var(--text); }
+  .sort-select option { background: var(--surface2); }
+
+  /* ── Scanline texture on hero ── */
+  .hero-scanline::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.04) 2px, rgba(0,0,0,.04) 4px);
+    border-radius: inherit;
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════ TOAST CONTAINER ═══════════════════ -->
+<div id="toast-container"></div>
+
+<!-- ═══════════════════ ADD/EDIT COURSE MODAL ═══════════════════ -->
+<div id="course-modal" class="modal-overlay" role="dialog" aria-modal="true">
+  <div class="modal-box">
+    <div class="flex items-center justify-between mb-6">
+      <h2 id="modal-title" class="text-lg font-semibold">Add Course</h2>
+      <button class="btn-icon" onclick="closeModal()"><i class="fa fa-xmark"></i></button>
+    </div>
+    <div class="flex flex-col gap-4">
+      <div>
+        <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wide">Course Name *</label>
+        <input id="f-name" type="text" class="inp" placeholder="e.g. The Complete React Developer" />
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wide">Platform / Source</label>
+        <input id="f-platform" type="text" class="inp" placeholder="e.g. Udemy, YouTube, Book…" />
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wide">Total Lessons *</label>
+          <input id="f-total" type="number" min="1" class="inp" placeholder="42" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wide">Category</label>
+          <select id="f-category" class="inp">
+            <option value="Development">Development</option>
+            <option value="Design">Design</option>
+            <option value="Language">Language</option>
+            <option value="Data">Data / AI</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wide">Est. Hours Total</label>
+        <input id="f-hours" type="number" min="0" step="0.5" class="inp" placeholder="20" />
+      </div>
+    </div>
+    <div class="flex items-center gap-3 mt-6 justify-end">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCourse()"><i class="fa fa-floppy-disk"></i> Save Course</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ NOTES MODAL ═══════════════════ -->
+<div id="notes-modal" class="modal-overlay" role="dialog" aria-modal="true">
+  <div class="modal-box">
+    <div class="flex items-center justify-between mb-4">
+      <h2 id="notes-modal-title" class="text-lg font-semibold flex items-center gap-2">
+        <i class="fa fa-note-sticky text-violet-400"></i> Quick Notes
+      </h2>
+      <button class="btn-icon" onclick="closeNotesModal()"><i class="fa fa-xmark"></i></button>
+    </div>
+    <p class="text-xs text-slate-500 mb-3">Jot down key takeaways, links, or questions. Markdown-friendly.</p>
+    <textarea id="notes-textarea" class="notes-area" style="min-height:200px" placeholder="## Key Takeaways&#10;- ...&#10;&#10;## Links&#10;- https://..."></textarea>
+    <div class="flex justify-end gap-3 mt-4">
+      <button class="btn btn-ghost" onclick="closeNotesModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveNotes()"><i class="fa fa-floppy-disk"></i> Save Notes</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ MAIN LAYOUT ═══════════════════ -->
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
+
+  <!-- ── HEADER ── -->
+  <header class="flex items-center justify-between mb-8">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,#7C3AED,#a855f7)">
+        <i class="fa fa-bolt text-white text-sm"></i>
+      </div>
+      <span class="text-xl font-bold tracking-tight" style="font-family:var(--mono)">LearnFlow</span>
+    </div>
+    <button class="btn btn-primary" onclick="openModal()">
+      <i class="fa fa-plus"></i> Add Course
+    </button>
+  </header>
+
+  <!-- ── HERO STATS ── -->
+  <div class="relative mb-8 hero-scanline" style="border-radius:20px">
+    <div class="hero-glow"></div>
+    <div class="stat-grid grid grid-cols-2 sm:grid-cols-4 gap-3" id="stats-section">
+      <!-- rendered by JS -->
+    </div>
+  </div>
+
+  <!-- ── TOP WIDGETS ROW ── -->
+  <div class="top-widgets grid grid-cols-3 gap-4 mb-8" style="grid-template-columns:1fr 1fr 1fr">
+
+    <!-- Pomodoro Timer -->
+    <div class="card p-5 flex flex-col items-center gap-3 col-span-1">
+      <div class="flex items-center gap-2 self-start w-full">
+        <i class="fa fa-clock text-violet-400 text-sm"></i>
+        <span class="text-sm font-semibold text-slate-300">Focus Timer</span>
+        <span id="pomo-mode-label" class="ml-auto badge badge-in-progress">Focus</span>
+      </div>
+      <!-- SVG ring -->
+      <div class="relative" style="width:110px;height:110px">
+        <svg width="110" height="110" class="pomo-ring">
+          <circle class="pomo-bg"  cx="55" cy="55" r="40" />
+          <circle class="pomo-arc" cx="55" cy="55" r="40" id="pomo-arc" />
+        </svg>
+        <div class="absolute inset-0 flex items-center justify-center">
+          <span id="pomo-display" class="mono text-2xl font-bold text-slate-100">25:00</span>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="pomo-play" class="btn btn-ghost pomo-btn text-xs px-3 py-1.5" onclick="pomodoroToggle()">
+          <i class="fa fa-play"></i> Start
+        </button>
+        <button class="btn btn-ghost text-xs px-3 py-1.5" onclick="pomodoroReset()">
+          <i class="fa fa-rotate-right"></i>
+        </button>
+        <button class="btn btn-ghost text-xs px-3 py-1.5" onclick="pomodoroSkip()" title="Skip to break">
+          <i class="fa fa-forward-step"></i>
+        </button>
+      </div>
+      <p id="pomo-session-label" class="text-xs text-slate-500">Session 1 of 4 · then long break</p>
+    </div>
+
+    <!-- Streak -->
+    <div class="card p-5 flex flex-col gap-3 col-span-1">
+      <div class="flex items-center gap-2">
+        <span class="streak-fire text-lg">🔥</span>
+        <span class="text-sm font-semibold text-slate-300">Daily Streak</span>
+      </div>
+      <div class="flex items-end gap-2">
+        <span id="streak-count" class="mono text-5xl font-bold" style="color:var(--amber)">0</span>
+        <span class="text-slate-400 mb-1.5 text-sm">days</span>
+      </div>
+      <div id="streak-week" class="flex gap-1.5"></div>
+      <p id="streak-msg" class="text-xs text-slate-500 mt-auto">Log progress today to start your streak!</p>
+    </div>
+
+    <!-- Up Next -->
+    <div class="card up-next-card p-5 flex flex-col gap-3 col-span-1">
+      <div class="flex items-center gap-2">
+        <i class="fa fa-bullseye text-amber-400 text-sm"></i>
+        <span class="text-sm font-semibold text-slate-300">Up Next</span>
+        <span class="ml-auto text-xs text-slate-500">Priority</span>
+      </div>
+      <div id="up-next-content">
+        <!-- rendered by JS -->
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── COURSES HEADER ── -->
+  <div class="mb-5">
+    <!-- Row 1: title + controls -->
+    <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+      <h2 class="font-semibold text-slate-200 flex items-center gap-2">
+        <i class="fa fa-graduation-cap text-violet-400"></i>
+        My Courses
+        <span id="course-count-badge" class="mono text-xs bg-violet-900/40 text-violet-300 border border-violet-800/50 px-2 py-0.5 rounded-full">0</span>
+      </h2>
+      <div class="flex items-center gap-2 flex-wrap">
+        <!-- Category filter -->
+        <select id="filter-category" class="sort-select" onchange="renderCourses()">
+          <option value="">All Categories</option>
+          <option value="Development">Development</option>
+          <option value="Design">Design</option>
+          <option value="Language">Language</option>
+          <option value="Data">Data / AI</option>
+          <option value="Other">Other</option>
+        </select>
+        <!-- Sort -->
+        <select id="sort-courses" class="sort-select" onchange="renderCourses()">
+          <option value="default">Sort: Default</option>
+          <option value="name-asc">Name A→Z</option>
+          <option value="name-desc">Name Z→A</option>
+          <option value="progress-desc">Most Progress</option>
+          <option value="progress-asc">Least Progress</option>
+          <option value="updated">Recently Updated</option>
+          <option value="added">Date Added</option>
+        </select>
+      </div>
+    </div>
+    <!-- Row 2: Status filter tabs -->
+    <div class="filter-tabs" id="status-tabs">
+      <button class="filter-tab tab-all active" data-status="all" onclick="setStatusFilter('all')">
+        <span class="tab-dot" style="background:#a78bfa"></span>
+        All <span id="tab-count-all" class="opacity-60">0</span>
+      </button>
+      <button class="filter-tab tab-progress" data-status="In Progress" onclick="setStatusFilter('In Progress')">
+        <span class="tab-dot" style="background:#a78bfa"></span>
+        In Progress <span id="tab-count-inprogress" class="opacity-60">0</span>
+      </button>
+      <button class="filter-tab tab-notstart" data-status="Not Started" onclick="setStatusFilter('Not Started')">
+        <span class="tab-dot" style="background:#64748b"></span>
+        Not Started <span id="tab-count-notstarted" class="opacity-60">0</span>
+      </button>
+      <button class="filter-tab tab-complete" data-status="Completed" onclick="setStatusFilter('Completed')">
+        <span class="tab-dot" style="background:#10B981"></span>
+        Completed <span id="tab-count-completed" class="opacity-60">0</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ── COURSE GRID ── -->
+  <div id="course-grid" class="course-grid"></div>
+
+</div><!-- /max-w-7xl -->
+
+<!-- ═══════════════════ SCRIPT ═══════════════════ -->
+<script>
+/* ════════════════════════════════════════════════
+   STATE & STORAGE
+════════════════════════════════════════════════ */
+
+const STORAGE_KEY    = 'learnflow_courses_v2';
+const STREAK_KEY     = 'learnflow_streak_v2';
+const POMODORO_STATE = 'learnflow_pomo_v1';
+
+// Load state from localStorage
+let courses = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+let streakData = JSON.parse(localStorage.getItem(STREAK_KEY) || JSON.stringify({
+  count: 0, lastDate: null, weekLog: []   // weekLog: array of 7 YYYY-MM-DD strings
+}));
+
+let editingId = null;   // null = add mode, string = edit mode
+let notesId   = null;   // course being edited in notes modal
+let activeStatusFilter = 'all'; // 'all' | 'In Progress' | 'Not Started' | 'Completed'
+
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(courses));
+}
+function saveStreak() {
+  localStorage.setItem(STREAK_KEY, JSON.stringify(streakData));
+}
+
+/* ════════════════════════════════════════════════
+   HELPERS
+════════════════════════════════════════════════ */
+
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function todayStr() { return new Date().toISOString().slice(0, 10); }
+
+function getStatus(course) {
+  if (course.completed === 0)                          return 'Not Started';
+  if (course.completed >= course.total)               return 'Completed';
+  return 'In Progress';
+}
+
+function pct(course) {
+  return course.total > 0 ? Math.min(100, Math.round((course.completed / course.total) * 100)) : 0;
+}
+
+function catClass(cat) {
+  const map = { Development:'cat-dev', Design:'cat-design', Language:'cat-lang', 'Data':'cat-data', Other:'cat-other' };
+  return map[cat] || 'cat-other';
+}
+
+function badgeClass(status) {
+  if (status === 'Not Started') return 'badge-not-started';
+  if (status === 'Completed')   return 'badge-completed';
+  return 'badge-in-progress';
+}
+
+function hoursStudied() {
+  return courses.reduce((acc, c) => {
+    const ratio = c.total > 0 ? (c.completed / c.total) : 0;
+    return acc + (ratio * (c.estHours || 0));
+  }, 0).toFixed(1);
+}
+
+/* ════════════════════════════════════════════════
+   STREAK LOGIC
+════════════════════════════════════════════════ */
+
+function recordStudyToday() {
+  const today = todayStr();
+  if (streakData.lastDate === today) return; // already logged
+
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+
+  if (streakData.lastDate === yesterday) {
+    streakData.count++;
+  } else if (streakData.lastDate !== today) {
+    streakData.count = 1; // reset or start
+  }
+
+  streakData.lastDate = today;
+  // keep rolling 7-day log
+  if (!streakData.weekLog.includes(today)) {
+    streakData.weekLog.push(today);
+    if (streakData.weekLog.length > 7) streakData.weekLog.shift();
+  }
+  saveStreak();
+  renderStreak();
+}
+
+function renderStreak() {
+  document.getElementById('streak-count').textContent = streakData.count;
+
+  // 7-day dot row
+  const container = document.getElementById('streak-week');
+  container.innerHTML = '';
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
+    const studied = streakData.weekLog.includes(d);
+    const dot = document.createElement('div');
+    dot.className = 'flex-1 h-2 rounded-full';
+    dot.style.background = studied
+      ? 'linear-gradient(90deg,#F59E0B,#fcd34d)'
+      : 'var(--surface2)';
+    dot.title = d;
+    container.appendChild(dot);
+  }
+
+  const msg = document.getElementById('streak-msg');
+  if (streakData.count === 0) {
+    msg.textContent = 'Log progress today to start your streak!';
+  } else if (streakData.lastDate !== todayStr()) {
+    msg.textContent = '⚠️ Log progress today to keep your streak!';
+    msg.style.color = '#F59E0B';
+  } else {
+    msg.textContent = `🎯 Nice work! Last studied today.`;
+    msg.style.color = '#34d399';
+  }
+}
+
+/* ════════════════════════════════════════════════
+   STATS SECTION
+════════════════════════════════════════════════ */
+
+function renderStats() {
+  const total   = courses.length;
+  const active  = courses.filter(c => getStatus(c) === 'In Progress').length;
+  const done    = courses.filter(c => getStatus(c) === 'Completed').length;
+  const overall = total > 0
+    ? Math.round(courses.reduce((a, c) => a + pct(c), 0) / total)
+    : 0;
+  const hrs = hoursStudied();
+
+  const stats = [
+    { label: 'Overall Completion', value: overall + '%', icon: 'fa-chart-pie',        color: 'var(--violet)' },
+    { label: 'Hours Studied',       value: hrs + 'h',   icon: 'fa-clock',             color: 'var(--emerald)' },
+    { label: 'Active Courses',      value: active,       icon: 'fa-book-open',         color: '#60a5fa' },
+    { label: 'Completed',           value: done,         icon: 'fa-circle-check',      color: var_emerald() },
+  ];
+
+  const el = document.getElementById('stats-section');
+  el.innerHTML = stats.map(s => `
+    <div class="stat-card">
+      <div class="flex items-center gap-2 mb-3">
+        <i class="fa ${s.icon} text-sm" style="color:${s.color}"></i>
+        <span class="text-xs text-slate-500 uppercase tracking-wide font-medium">${s.label}</span>
+      </div>
+      <div class="mono text-3xl font-bold" style="color:${s.color}">${s.value}</div>
+    </div>
+  `).join('');
+
+  document.getElementById('course-count-badge').textContent = total;
+}
+
+function var_emerald() { return '#10B981'; } // helper
+
+/* ════════════════════════════════════════════════
+   UP NEXT LOGIC
+════════════════════════════════════════════════ */
+
+function renderUpNext() {
+  const el = document.getElementById('up-next-content');
+  const incomplete = courses.filter(c => getStatus(c) !== 'Completed');
+  if (incomplete.length === 0) {
+    el.innerHTML = `<p class="text-sm text-slate-500 italic">All courses completed! 🎉</p>`;
+    return;
+  }
+
+  // Score: lowest pct wins, tie-break by oldest lastUpdated
+  const scored = incomplete.map(c => ({
+    ...c,
+    score: pct(c) * 1000 + (c.lastUpdated ? new Date(c.lastUpdated).getTime() : 0)
+  }));
+  scored.sort((a, b) => a.score - b.score);
+  const next = scored[0];
+  const p = pct(next);
+
+  el.innerHTML = `
+    <div>
+      <p class="text-sm font-semibold text-slate-200 leading-tight mb-1 line-clamp-2">${esc(next.name)}</p>
+      <p class="text-xs text-slate-500 mb-3">${esc(next.platform || 'No platform')} · ${esc(next.category)}</p>
+      <div class="progress-track mb-1.5">
+        <div class="progress-fill" style="width:${p}%"></div>
+      </div>
+      <div class="flex justify-between text-xs text-slate-500">
+        <span>${next.completed}/${next.total} lessons</span>
+        <span class="mono font-semibold text-amber-400">${p}%</span>
+      </div>
+      <button class="btn btn-ghost text-xs mt-3 w-full" onclick="incrementLesson('${next.id}')">
+        <i class="fa fa-plus"></i> Log a Lesson
+      </button>
+    </div>
+  `;
+}
+
+/* ════════════════════════════════════════════════
+   COURSE CRUD
+════════════════════════════════════════════════ */
+
+function openModal(id = null) {
+  editingId = id;
+  const modal = document.getElementById('course-modal');
+  document.getElementById('modal-title').textContent = id ? 'Edit Course' : 'Add Course';
+
+  if (id) {
+    const c = courses.find(x => x.id === id);
+    document.getElementById('f-name').value     = c.name;
+    document.getElementById('f-platform').value = c.platform || '';
+    document.getElementById('f-total').value    = c.total;
+    document.getElementById('f-category').value = c.category;
+    document.getElementById('f-hours').value    = c.estHours || '';
+  } else {
+    document.getElementById('f-name').value     = '';
+    document.getElementById('f-platform').value = '';
+    document.getElementById('f-total').value    = '';
+    document.getElementById('f-category').value = 'Development';
+    document.getElementById('f-hours').value    = '';
+  }
+  modal.classList.add('open');
+  setTimeout(() => document.getElementById('f-name').focus(), 80);
+}
+
+function closeModal() {
+  document.getElementById('course-modal').classList.remove('open');
+  editingId = null;
+}
+
+function saveCourse() {
+  const name     = document.getElementById('f-name').value.trim();
+  const platform = document.getElementById('f-platform').value.trim();
+  const total    = parseInt(document.getElementById('f-total').value);
+  const category = document.getElementById('f-category').value;
+  const estHours = parseFloat(document.getElementById('f-hours').value) || 0;
+
+  if (!name)      { toast('Course name is required', 'info'); return; }
+  if (!total || total < 1) { toast('Total lessons must be ≥ 1', 'info'); return; }
+
+  if (editingId) {
+    const idx = courses.findIndex(c => c.id === editingId);
+    const prev = courses[idx];
+    courses[idx] = {
+      ...prev,
+      name, platform, total: total,
+      category, estHours,
+      // clamp completed if total decreased
+      completed: Math.min(prev.completed, total),
+    };
+    toast('Course updated ✓', 'success');
+  } else {
+    courses.push({
+      id: uid(), name, platform, total,
+      category, estHours,
+      completed: 0,
+      notes: '',
+      createdAt: new Date().toISOString(),
+      lastUpdated: null,
+    });
+    toast('Course added ✓', 'success');
+  }
+
+  save();
+  closeModal();
+  renderAll();
+}
+
+function deleteCourse(id) {
+  if (!confirm('Delete this course? This cannot be undone.')) return;
+  courses = courses.filter(c => c.id !== id);
+  save();
+  renderAll();
+  toast('Course deleted', 'info');
+}
+
+/* ════════════════════════════════════════════════
+   LESSON INCREMENT / DECREMENT
+════════════════════════════════════════════════ */
+
+function incrementLesson(id) {
+  const c = courses.find(x => x.id === id);
+  if (!c || c.completed >= c.total) return;
+  c.completed++;
+  c.lastUpdated = new Date().toISOString();
+  save();
+  recordStudyToday(); // streak
+  renderAll();
+  if (c.completed === c.total) toast(`🎉 "${c.name}" completed!`, 'success');
+}
+
+function decrementLesson(id) {
+  const c = courses.find(x => x.id === id);
+  if (!c || c.completed <= 0) return;
+  c.completed--;
+  c.lastUpdated = new Date().toISOString();
+  save();
+  renderAll();
+}
+
+/* ════════════════════════════════════════════════
+   NOTES MODAL
+════════════════════════════════════════════════ */
+
+function openNotesModal(id) {
+  notesId = id;
+  const c = courses.find(x => x.id === id);
+  document.getElementById('notes-modal-title').innerHTML =
+    `<i class="fa fa-note-sticky text-violet-400"></i> Notes — ${esc(c.name)}`;
+  document.getElementById('notes-textarea').value = c.notes || '';
+  document.getElementById('notes-modal').classList.add('open');
+  setTimeout(() => document.getElementById('notes-textarea').focus(), 80);
+}
+
+function closeNotesModal() {
+  document.getElementById('notes-modal').classList.remove('open');
+  notesId = null;
+}
+
+function saveNotes() {
+  const c = courses.find(x => x.id === notesId);
+  c.notes = document.getElementById('notes-textarea').value;
+  save();
+  closeNotesModal();
+  renderCourses();
+  toast('Notes saved ✓', 'success');
+}
+
+/* ════════════════════════════════════════════════
+   RENDER COURSES
+════════════════════════════════════════════════ */
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ════════════════════════════════════════════════
+   STATUS FILTER TABS
+════════════════════════════════════════════════ */
+
+function setStatusFilter(status) {
+  activeStatusFilter = status;
+  // Update tab active states
+  document.querySelectorAll('.filter-tab').forEach(btn => {
+    const isActive = btn.dataset.status === status;
+    btn.classList.toggle('active', isActive);
+  });
+  renderCourses();
+}
+
+function updateTabCounts() {
+  const all        = courses.length;
+  const inProgress = courses.filter(c => getStatus(c) === 'In Progress').length;
+  const notStarted = courses.filter(c => getStatus(c) === 'Not Started').length;
+  const completed  = courses.filter(c => getStatus(c) === 'Completed').length;
+
+  const el = (id) => document.getElementById(id);
+  if (el('tab-count-all'))        el('tab-count-all').textContent        = all;
+  if (el('tab-count-inprogress')) el('tab-count-inprogress').textContent = inProgress;
+  if (el('tab-count-notstarted')) el('tab-count-notstarted').textContent = notStarted;
+  if (el('tab-count-completed'))  el('tab-count-completed').textContent  = completed;
+}
+
+function renderCourses() {
+  const grid = document.getElementById('course-grid');
+  const filterCat  = document.getElementById('filter-category').value;
+  const sortMode   = document.getElementById('sort-courses').value;
+
+  // 1. Filter by category
+  let list = filterCat ? courses.filter(c => c.category === filterCat) : [...courses];
+
+  // 2. Filter by status tab
+  if (activeStatusFilter !== 'all') {
+    list = list.filter(c => getStatus(c) === activeStatusFilter);
+  }
+
+  // 3. Update tab counts (always from full list, ignoring category for counts)
+  updateTabCounts();
+
+  // 4. Sort
+  switch (sortMode) {
+    case 'name-asc':       list.sort((a,b) => a.name.localeCompare(b.name)); break;
+    case 'name-desc':      list.sort((a,b) => b.name.localeCompare(a.name)); break;
+    case 'progress-desc':  list.sort((a,b) => pct(b) - pct(a)); break;
+    case 'progress-asc':   list.sort((a,b) => pct(a) - pct(b)); break;
+    case 'updated':        list.sort((a,b) => new Date(b.lastUpdated||0) - new Date(a.lastUpdated||0)); break;
+    case 'added':          list.sort((a,b) => new Date(b.createdAt||0) - new Date(a.createdAt||0)); break;
+    default: break; // keep insertion order
+  }
+
+  if (list.length === 0) {
+    const emptyMsgs = {
+      'all':          { icon: '📚', title: 'No courses yet', sub: 'Add your first course to get started.', btn: true },
+      'In Progress':  { icon: '⏳', title: 'No courses in progress', sub: 'Start a course to see it here.', btn: false },
+      'Not Started':  { icon: '🚀', title: 'No unstarted courses', sub: 'All your courses have been started!', btn: false },
+      'Completed':    { icon: '🎉', title: 'No completed courses yet', sub: 'Keep going — you\'re almost there!', btn: false },
+    };
+    const m = emptyMsgs[activeStatusFilter] || emptyMsgs['all'];
+    grid.innerHTML = `
+      <div class="col-span-full empty-state">
+        <div class="text-5xl mb-4">${m.icon}</div>
+        <p class="text-slate-400 font-medium mb-1">${m.title}</p>
+        <p class="text-slate-600 text-sm mb-5">${m.sub}</p>
+        ${m.btn ? `<button class="btn btn-primary" onclick="openModal()"><i class="fa fa-plus"></i> Add Course</button>` : ''}
+      </div>`;
+    return;
+  }
+
+  grid.innerHTML = list.map(c => {
+    const p       = pct(c);
+    const status  = getStatus(c);
+    const isComplete = status === 'Completed';
+    const hasNotes = c.notes && c.notes.trim().length > 0;
+
+    return `
+    <div class="card p-5 flex flex-col gap-4" id="card-${c.id}">
+      <!-- Top row: category + status + actions -->
+      <div class="flex items-start justify-between gap-2">
+        <div class="flex flex-wrap gap-1.5">
+          <span class="badge text-xs px-2 py-0.5 rounded-full ${catClass(c.category)}" style="border:1px solid transparent">${esc(c.category)}</span>
+          <span class="badge ${badgeClass(status)}">${status}</span>
+        </div>
+        <div class="flex items-center gap-1 shrink-0">
+          <button class="btn-icon" title="Notes" onclick="openNotesModal('${c.id}')">
+            <i class="fa fa-note-sticky ${hasNotes ? 'text-violet-400' : ''}"></i>
+          </button>
+          <button class="btn-icon" title="Edit" onclick="openModal('${c.id}')">
+            <i class="fa fa-pen"></i>
+          </button>
+          <button class="btn-icon" title="Delete" onclick="deleteCourse('${c.id}')" style="color:var(--red);opacity:.6">
+            <i class="fa fa-trash"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Name + platform -->
+      <div>
+        <h3 class="font-semibold text-slate-100 leading-tight mb-0.5 text-[15px]">${esc(c.name)}</h3>
+        ${c.platform ? `<p class="text-xs text-slate-500">${esc(c.platform)}</p>` : ''}
+      </div>
+
+      <!-- Progress bar -->
+      <div>
+        <div class="flex justify-between items-center mb-1.5">
+          <span class="text-xs text-slate-500">Progress</span>
+          <span class="mono text-xs font-bold ${isComplete ? 'text-emerald-400' : 'text-violet-400'}">${p}%</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill ${isComplete ? 'complete' : ''}" style="width:${p}%"></div>
+        </div>
+        <p class="text-xs text-slate-600 mt-1">${c.completed} / ${c.total} lessons${c.estHours ? ` · ~${c.estHours}h est.` : ''}</p>
+      </div>
+
+      <!-- Lesson counter -->
+      <div class="flex items-center gap-2 mt-auto">
+        <button class="btn-icon" title="Remove lesson" onclick="decrementLesson('${c.id}')" ${c.completed <= 0 ? 'disabled style="opacity:.3"' : ''}>
+          <i class="fa fa-minus"></i>
+        </button>
+        <div class="flex-1 text-center">
+          <span class="mono text-lg font-bold text-slate-200">${c.completed}</span>
+          <span class="text-slate-600 text-sm">/${c.total}</span>
+        </div>
+        <button class="btn-icon emerald" title="Add lesson" onclick="incrementLesson('${c.id}')" ${c.completed >= c.total ? 'disabled style="opacity:.3"' : ''}>
+          <i class="fa fa-plus"></i>
+        </button>
+        ${!isComplete ? `
+        <button class="btn btn-ghost text-xs px-2 py-1" onclick="incrementLesson('${c.id}')" title="Log lesson">
+          <i class="fa fa-check text-emerald-400"></i> Done
+        </button>` : ''}
+      </div>
+
+      <!-- Notes preview -->
+      ${hasNotes ? `
+      <div class="notes-section border-t border-[var(--border)] pt-3">
+        <p class="text-xs text-slate-500 mb-1"><i class="fa fa-note-sticky text-violet-400 mr-1"></i>Notes</p>
+        <pre class="text-xs text-slate-400 leading-relaxed whitespace-pre-wrap break-words" style="font-family:var(--mono);max-height:80px;overflow:hidden;mask-image:linear-gradient(180deg,#fff 60%,transparent)">${esc(c.notes)}</pre>
+        <button class="text-xs text-violet-400 hover:text-violet-300 mt-1" onclick="openNotesModal('${c.id}')">Edit notes →</button>
+      </div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function renderAll() {
+  renderStats();
+  renderStreak();
+  renderUpNext();
+  renderCourses();
+}
+
+/* ════════════════════════════════════════════════
+   POMODORO TIMER
+════════════════════════════════════════════════ */
+
+const POMO_DURATIONS = {
+  focus: 25 * 60,
+  shortBreak: 5 * 60,
+  longBreak: 15 * 60,
+};
+
+let pomoState = {
+  running:    false,
+  mode:       'focus',   // 'focus' | 'shortBreak' | 'longBreak'
+  remaining:  POMO_DURATIONS.focus,
+  sessionNum: 1,         // 1-4 focus sessions before long break
+  interval:   null,
+};
+
+function pomodoroToggle() {
+  if (pomoState.running) {
+    clearInterval(pomoState.interval);
+    pomoState.running = false;
+    document.getElementById('pomo-play').innerHTML = '<i class="fa fa-play"></i> Start';
+    document.getElementById('pomo-play').classList.remove('active');
+  } else {
+    pomoState.running = true;
+    document.getElementById('pomo-play').innerHTML = '<i class="fa fa-pause"></i> Pause';
+    document.getElementById('pomo-play').classList.add('active');
+    pomoState.interval = setInterval(pomodoroTick, 1000);
+  }
+}
+
+function pomodoroTick() {
+  if (pomoState.remaining <= 0) {
+    clearInterval(pomoState.interval);
+    pomoState.running = false;
+    pomodoroAdvance();
+    return;
+  }
+  pomoState.remaining--;
+  updatePomoUI();
+}
+
+function pomodoroAdvance() {
+  if (pomoState.mode === 'focus') {
+    // record study session if any progress was made
+    if (pomoState.sessionNum < 4) {
+      pomoState.mode = 'shortBreak';
+      pomoState.remaining = POMO_DURATIONS.shortBreak;
+      toast('Focus session done! Take a 5-min break 🌿', 'success');
+    } else {
+      pomoState.mode = 'longBreak';
+      pomoState.sessionNum = 0;
+      pomoState.remaining = POMO_DURATIONS.longBreak;
+      toast('4 sessions done! Take a 15-min break 🎉', 'success');
+    }
+  } else {
+    pomoState.sessionNum++;
+    pomoState.mode = 'focus';
+    pomoState.remaining = POMO_DURATIONS.focus;
+    toast('Break over — time to focus! 🔥', 'info');
+  }
+  document.getElementById('pomo-play').innerHTML = '<i class="fa fa-play"></i> Start';
+  document.getElementById('pomo-play').classList.remove('active');
+  updatePomoUI();
+}
+
+function pomodoroReset() {
+  clearInterval(pomoState.interval);
+  pomoState.running   = false;
+  pomoState.mode      = 'focus';
+  pomoState.remaining = POMO_DURATIONS.focus;
+  pomoState.sessionNum = 1;
+  document.getElementById('pomo-play').innerHTML = '<i class="fa fa-play"></i> Start';
+  document.getElementById('pomo-play').classList.remove('active');
+  updatePomoUI();
+}
+
+function pomodoroSkip() {
+  clearInterval(pomoState.interval);
+  pomoState.running = false;
+  pomodoroAdvance();
+}
+
+function updatePomoUI() {
+  const m = Math.floor(pomoState.remaining / 60).toString().padStart(2, '0');
+  const s = (pomoState.remaining % 60).toString().padStart(2, '0');
+  document.getElementById('pomo-display').textContent = `${m}:${s}`;
+
+  const total = POMO_DURATIONS[pomoState.mode];
+  const ratio = (total - pomoState.remaining) / total;
+  const circ  = 251.2;
+  const offset = circ - (ratio * circ);
+  const arc = document.getElementById('pomo-arc');
+  arc.style.strokeDashoffset = offset;
+  arc.classList.toggle('break', pomoState.mode !== 'focus');
+
+  const modeLabel = document.getElementById('pomo-mode-label');
+  modeLabel.textContent = pomoState.mode === 'focus' ? 'Focus' : pomoState.mode === 'shortBreak' ? 'Short Break' : 'Long Break';
+  modeLabel.className   = 'ml-auto badge ' + (pomoState.mode === 'focus' ? 'badge-in-progress' : 'badge-completed');
+
+  document.getElementById('pomo-session-label').textContent =
+    `Session ${pomoState.sessionNum} of 4 · ${4 - pomoState.sessionNum === 0 ? 'then long break' : `${4 - pomoState.sessionNum} left`}`;
+}
+
+/* ════════════════════════════════════════════════
+   TOAST
+════════════════════════════════════════════════ */
+
+function toast(msg, type = 'info') {
+  const icons = { success: '✅', info: 'ℹ️' };
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `<span>${icons[type] || 'ℹ️'}</span><span>${msg}</span>`;
+  document.getElementById('toast-container').appendChild(el);
+  requestAnimationFrame(() => { requestAnimationFrame(() => { el.classList.add('show'); }); });
+  setTimeout(() => {
+    el.classList.remove('show');
+    setTimeout(() => el.remove(), 350);
+  }, 3000);
+}
+
+/* ════════════════════════════════════════════════
+   KEYBOARD / MODAL CLOSE
+════════════════════════════════════════════════ */
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeModal(); closeNotesModal(); }
+});
+document.getElementById('course-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('course-modal')) closeModal();
+});
+document.getElementById('notes-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('notes-modal')) closeNotesModal();
+});
+
+// Submit on Enter inside modal
+document.getElementById('f-name').addEventListener('keydown', e => {
+  if (e.key === 'Enter') saveCourse();
+});
+
+/* ════════════════════════════════════════════════
+   INIT
+════════════════════════════════════════════════ */
+
+// Seed demo data if first visit
+if (courses.length === 0) {
+  const now = new Date();
+  const d1  = new Date(now - 86400000 * 2).toISOString();
+  const d2  = new Date(now - 86400000 * 5).toISOString();
+  courses = [
+    { id: uid(), name: 'The Complete React Developer Course', platform: 'Udemy', category: 'Development',
+      total: 60, completed: 22, estHours: 40, notes: '## Key Takeaways\n- Hooks replace class components\n- useEffect for side effects\n\n## Links\n- https://reactjs.org/docs',
+      createdAt: d2, lastUpdated: d1 },
+    { id: uid(), name: 'UI/UX Design Masterclass', platform: 'Coursera', category: 'Design',
+      total: 48, completed: 0, estHours: 30, notes: '',
+      createdAt: d2, lastUpdated: null },
+    { id: uid(), name: 'Spanish for Beginners', platform: 'Duolingo', category: 'Language',
+      total: 100, completed: 100, estHours: 20, notes: '¡Muy bien!',
+      createdAt: d2, lastUpdated: d1 },
+    { id: uid(), name: 'Machine Learning A–Z', platform: 'Udemy', category: 'Data',
+      total: 80, completed: 15, estHours: 55, notes: '',
+      createdAt: d2, lastUpdated: d2 },
+  ];
+  save();
+}
+
+updatePomoUI();
+renderAll();
+</script>
+</body>
+</html>
